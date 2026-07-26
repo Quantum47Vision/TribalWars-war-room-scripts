@@ -84,7 +84,7 @@ Built for the Tribal Wars community. Not affiliated with or endorsed by Innogame
 
 ## 📜 Changelog
 
-### v1.6.0 (Initial Public Release)
+### v1.7.0 (Initial Public Release)
 *First public release of War Room.*
 
 **Core Features:**
