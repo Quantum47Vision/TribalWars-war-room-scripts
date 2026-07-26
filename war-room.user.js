@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         War Room — Tribal Wars Command
 // @namespace    https://danieltanasescu.dev/warroom
-// @version      1.6.0
+// @version      1.7.0
 // @description  Unofficial in-game planning panel for Tribal Wars: farm queue, attack forms, attacker intel, attack timing, build guide. Fills the rally point but never sends — you press Attack yourself.
 // @author       Daniel Tanasescu
 // @match        https://*.tribalwars.net/game.php*
@@ -77,7 +77,7 @@
   var CHROME_CSS = "\n/* ---- launcher lives in the PAGE (outside shadow) ---- */\n/* panel chrome lives inside shadow root #wr-host */\n.wr-launch{\n  position:fixed; z-index:2147483000; right:16px; bottom:16px;\n  font-family:'Cinzel',serif; font-weight:700; font-size:13px; letter-spacing:.05em;\n  text-transform:uppercase; color:#e8ddc7; background:#7c1f1a;\n  border:2px solid #241a10; border-radius:4px; padding:11px 16px; cursor:grab;\n  box-shadow:0 3px 8px rgba(0,0,0,.4); display:flex; align-items:center; gap:8px;\n}\n.wr-launch:active{ cursor:grabbing; }\n.wr-launch:hover{ background:#a3352b; }\n.wr-launch .s{ font-size:16px; color:#d9b45a; }\n.wr-overlay{ position:fixed; inset:0; z-index:2147482999; background:rgba(15,10,4,.45); display:none; }\n.wr-overlay.open{ display:block; }\n.wr-panel{\n  position:fixed; z-index:2147483000; top:5vh; left:50%; transform:translateX(-50%);\n  width:min(1140px,94vw); max-height:90vh; min-width:340px; min-height:220px; display:none; flex-direction:column;\n  border:2px solid #241a10; border-radius:8px; overflow:hidden;\n  box-shadow:0 12px 40px rgba(0,0,0,.5); background:#e8ddc7;\n}\n.wr-panel.open{ display:flex; }\n.wr-rz{ position:absolute; z-index:6; }\n.wr-rz-n{ top:0; left:10px; right:10px; height:6px; cursor:ns-resize; }\n.wr-rz-s{ bottom:0; left:10px; right:10px; height:6px; cursor:ns-resize; }\n.wr-rz-e{ right:0; top:10px; bottom:10px; width:6px; cursor:ew-resize; }\n.wr-rz-w{ left:0; top:10px; bottom:10px; width:6px; cursor:ew-resize; }\n.wr-rz-ne{ top:0; right:0; width:14px; height:14px; cursor:nesw-resize; }\n.wr-rz-nw{ top:0; left:0; width:14px; height:14px; cursor:nwse-resize; }\n.wr-rz-se{ bottom:0; right:0; width:18px; height:18px; cursor:nwse-resize; }\n.wr-rz-sw{ bottom:0; left:0; width:14px; height:14px; cursor:nesw-resize; }\n.wr-rz-se::after{ content:''; position:absolute; right:3px; bottom:3px; width:8px; height:8px; border-right:2px solid #8a6a2f; border-bottom:2px solid #8a6a2f; opacity:.55; pointer-events:none; }\n.wr-titlebar{\n  flex:none; display:flex; align-items:center; gap:10px; cursor:move;\n  background:#2c2620; color:#e8ddc7; padding:9px 14px;\n  font-family:'Cinzel',serif; font-weight:700; letter-spacing:.06em; font-size:14px; text-transform:uppercase;\n}\n.wr-titlebar .sig{ color:#d9b45a; font-size:17px; }\n.wr-titlebar .spacer{ flex:1; }\n.wr-titlebar button{\n  font-family:'Cinzel',serif; font-weight:700; font-size:12px; letter-spacing:.05em;\n  background:transparent; color:#e8ddc7; border:1px solid #55493a; border-radius:3px;\n  padding:5px 11px; cursor:pointer; text-transform:uppercase;\n}\n.wr-titlebar button:hover{ background:#7c1f1a; border-color:#7c1f1a; }\n.wr-scroll{ overflow-y:auto; padding:0; }\n.wr-scroll .wrap{ max-width:100%; padding:0 22px 30px; }\n.wr-scroll header.masthead{ padding-top:20px; }\n";
 
   // ========== BODY HTML ==========
-  var BODY_HTML = '<div class="wrap">\n\n  <header class="masthead">\n    <div class="crest">\n      <div class="sigil">⚔</div>\n      <div>\n        <h1>War Room</h1>\n        <div class="sub">Campaign planning for Tribal Wars — the table thinks, you command.</div>\n      </div>\n      <div class="launch" id="wrLaunch"></div>\n    </div>\n  </header>\n\n  <nav class="tabs" id="tabs">\n    <button data-tab="farm" class="active"><span class="n">01</span>Farm Run</button>\n    <button data-tab="attack"><span class="n">02</span>Attack</button>\n    <button data-tab="intel"><span class="n">03</span>Attacker Intel</button>\n    <button data-tab="timing"><span class="n">04</span>Attack Timing</button>\n    <button data-tab="build"><span class="n">05</span>Build Guide</button>\n    <button data-tab="data"><span class="n">06</span>World Data</button>\n    <button data-tab="settings"><span class="n">07</span>Settings</button>\n  </nav>\n\n  <!-- ============ 01 FARM RUN ============ -->\n  <section class="panel active" id="panel-farm">\n    <div class="panel-head">\n      <div class="eyebrow">Order of March</div>\n      <h2>Batch Farm Run</h2>\n      <p>Set your source and unit, paste your targets, and get the full order of march — every distance, travel time, and arrival laid out. You can manually fill the rally point or <strong>fill &amp; focus Attack</strong> so you send with one keypress.</p>\n    </div>\n\n    <div class="card">\n      <div class="grid g2">\n        <label class="fld"><span>Your village (X|Y)</span><input id="fSrc" class="mono" placeholder="500|500" value="500|500"></label>\n        <label class="fld"><span>Server offset (min)</span><input id="fOffset" class="mono" type="number" value="0" step="1"></label>\n      </div>\n      <div style="margin-top:16px;"><span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Units to send</span>\n        <div class="grid g4" id="fUnitGrid"></div>\n      </div>\n      <div class="grid g2" style="margin-top:16px;">\n        <label class="fld"><span>World speed</span><input id="fWorld" class="mono" type="number" value="1.25" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Unit speed</span><input id="fUnitSpd" class="mono" type="number" value="0.8" step="0.05" min="0.1"></label>\n      </div>\n      <div style="margin-top:16px;">\n        <span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Target queue <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— fill a target, it clears and the next moves up · hotkey to fill the next (default Q; change in Settings)</span></span>\n        <label class="fld" style="margin-bottom:10px;"><span>Bulk paste targets <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— any format, one or many per line</span></span><textarea id="fBulk" rows="4" placeholder="475|605 477|608 472|606 ...  (paste as many as you like)"></textarea></label>\n        <div class="btn-row" style="margin-bottom:10px;"><button class="ghost" data-act="bulkadd">Build queue from paste</button><button class="ghost" data-act="sortdist">Sort nearest-first</button><button class="ghost" data-act="findbarbs">Find nearby barbs</button></div>\n        <div id="barbFinderOut"></div>\n        <div id="fTargetQueue"></div>\n        <div class="btn-row" style="margin-top:4px;">\n          <button class="ghost" data-act="addtarget">+ Add target</button>\n          <span id="fQueueCount" class="mono" style="font-size:12px;color:var(--ink-soft);align-self:center;"></span>\n        </div>\n      </div>\n      <div style="margin-top:16px;">\n        <span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Raids in flight <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— return timers, live. Cancel any you didn\'t actually send.</span></span>\n        <div id="raidBoard"></div>\n      </div>\n      <div class="btn-row" style="margin-top:14px;">\n        <button class="act" onclick="planSingle()">Show timing</button>\n        <button class="ghost" data-act="savefarm">Save farm run</button>\n        <button class="ghost" onclick="clearFarmUnits()">Clear troops</button>\n        <label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft);margin-left:4px;">\n          <input type="checkbox" id="fSendNow" checked style="width:auto;"> arrival if I send now\n        </label>\n      </div>\n      <div class="note" style="margin-top:14px;"><strong>Each target has its own Fill and Fill &amp; focus button.</strong> Fill loads that target into the game\'s attack form, then the box clears and the queue shifts up so the next is ready — fill, press Attack in-game, fill the next. <em>You press Attack — the tool never sends on its own. Timing uses the slowest unit in the mix. Save farm run remembers your troops and whole target list across restarts.</em></div>\n    </div>\n    <div id="farmOut"></div>\n  </section>\n\n  <!-- ============ 02 ATTACK ============ -->\n  <section class="panel" id="panel-attack">\n    <div class="panel-head">\n      <div class="eyebrow">Order of Battle</div>\n      <h2>Attack</h2>\n      <p>Eight independent attack forms — each with its own source, target, troops and speeds. Fill and fire one at a time (fill form 1 → press Attack in-game → fill form 2 → …). <strong>Fill only</strong> — you press Attack in the game yourself.</p>\n    </div>\n\n    <div id="attackForms"></div>\n  </section>\n\n  <!-- ============ 03 ATTACKER INTEL ============ -->\n  <section class="panel" id="panel-intel">\n    <div class="panel-head">\n      <div class="eyebrow">Know Thine Enemy</div>\n      <h2>Attacker Intel</h2>\n      <p>An incoming attack shows you a <strong>landing time</strong> but never the units. This reads the timing backwards to name the <strong>slowest unit that could anchor the attack</strong> — telling you whether a noble (village-taker) or siege could be inside, or whether it\'s just fast cavalry. Load World Data (tab 06) to also name the attacker.</p>\n    </div>\n\n    <div class="card" style="background:linear-gradient(180deg,#e9e0cb,#ddd0b2);">\n      <div class="eyebrow" style="margin-bottom:8px;">How to read an incoming attack — 3 steps</div>\n      <div class="step"><div class="num">1</div><div class="body"><div class="h">Open the incoming attack in-game</div><div class="why">Overview → Incomings, or the rally point. Note the <strong>origin coordinates</strong> (where it\'s coming from) and the <strong>arrival time</strong> (when it lands).</div></div></div>\n      <div class="step"><div class="num">2</div><div class="body"><div class="h">Paste it, or type the three values</div><div class="why">Fastest: copy the whole incoming row and paste it in the box below — coords and time are pulled out automatically. Or type origin, your coords, and arrival by hand.</div></div></div>\n      <div class="step"><div class="num">3</div><div class="body"><div class="h">Read the threat report</div><div class="why">You get the anchor unit, what could be hidden with it, distance, and a threat level. Scout in-game to confirm — no tool can see their exact troops.</div></div></div>\n    </div>\n\n    <div class="card">\n      <div id="intelStatus" class="note" style="margin-top:0;margin-bottom:14px;border-color:var(--good);background:rgba(63,107,63,.08);">Reading world settings…</div>\n\n      <div class="btn-row" style="margin-bottom:14px;"><button class="act" data-act="intel-auto" style="background:var(--iron);">⚡ Auto-read incomings from this page</button></div>\n      <div id="intelAutoOut"></div>\n\n      <label class="fld"><span>Paste the incoming attack row <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(easiest — pulls coords + time for you)</span></span>\n        <textarea id="iPaste" rows="3" placeholder="e.g.  Attack  EnemyPlayer (532|488)  →  Your Village (500|500)  arrival 18:35:12"></textarea>\n      </label>\n      <div class="btn-row"><button class="act" data-act="intel-paste">Analyse pasted attack</button></div>\n\n      <div style="text-align:center;margin:14px 0;font-family:\'Cinzel\';font-size:12px;color:var(--ink-soft);letter-spacing:.1em;">— OR TYPE IT —</div>\n\n      <div class="grid g2">\n        <label class="fld"><span>Origin — attacker\'s coords <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(from the incoming)</span></span><input id="iOrigin" class="mono" placeholder="532|488"></label>\n        <label class="fld"><span>Target — your coords <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto-filled)</span></span><input id="iTarget" class="mono" placeholder="500|500"></label>\n      </div>\n      <div class="grid g4" style="margin-top:14px;">\n        <label class="fld"><span>Arrival (server) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">HH:MM:SS</span></span><input id="iArrive" class="mono" placeholder="18:35:12"></label>\n        <label class="fld"><span>World speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="iWorld" class="mono" type="number" value="1.25" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Unit speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="iUnitSpd" class="mono" type="number" value="0.8" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Clock offset (min) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="iOffset" class="mono" type="number" value="0" step="1"></label>\n      </div>\n      <div class="btn-row"><button class="act" data-act="intel-fields">Analyse attack</button></div>\n    </div>\n    <div id="intelOut"></div>\n  </section>\n\n  <!-- ============ 04 ATTACK TIMING ============ -->\n  <section class="panel" id="panel-timing">\n    <div class="panel-head">\n      <div class="eyebrow">The Hour of Arrival</div>\n      <h2>Attack Timing</h2>\n      <p>Work backwards from a <strong>landing time</strong> to know exactly when to click send — for every unit at once. This is how you time a snipe, land nobles back-to-back, or coordinate hits with allies to the second.</p>\n    </div>\n\n    <div class="card" style="background:linear-gradient(180deg,#e9e0cb,#ddd0b2);">\n      <div class="eyebrow" style="margin-bottom:8px;">Two ways to use this</div>\n      <div class="step"><div class="num">A</div><div class="body"><div class="h">When must I send to land at a set time?</div><div class="why">Enter your village, the target, and the <strong>desired arrival</strong> (server time). Get a send-time for each unit — send that unit at that clock time and it lands exactly when you wanted.</div></div></div>\n      <div class="step"><div class="num">B</div><div class="body"><div class="h">How long does each unit take on this route?</div><div class="why">Leave arrival blank and press <strong>Compare units</strong> — see the travel time of every unit between the two villages, fastest first.</div></div></div>\n    </div>\n\n    <div class="card">\n      <div id="timingStatus" class="note" style="margin-top:0;margin-bottom:14px;border-color:var(--good);background:rgba(63,107,63,.08);">Reading world settings…</div>\n\n      <div class="grid g2">\n        <label class="fld"><span>From — your village (X|Y) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto-filled)</span></span><input id="tOrigin" class="mono" placeholder="500|500"></label>\n        <label class="fld"><span>To — target (X|Y)</span><input id="tTarget" class="mono" placeholder="505|505"></label>\n      </div>\n      <div class="grid g4" style="margin-top:14px;">\n        <label class="fld"><span>World speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="tWorld" class="mono" type="number" value="1.25" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Unit speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="tUnitSpd" class="mono" type="number" value="0.8" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Desired arrival (server) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">HH:MM:SS — leave blank for B</span></span><input id="tArrive" class="mono" placeholder="20:00:00"></label>\n        <label class="fld"><span>Clock offset (min) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="tOffset" class="mono" type="number" value="0" step="1"></label>\n      </div>\n      <div class="btn-row">\n        <button class="act" onclick="sendTimeCalc()">When to send (A)</button>\n        <button class="act" onclick="compareAllUnits()">Compare travel times (B)</button>\n      </div>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:8px;">Noble train — 4 nobles, back-to-back</div>\n      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">To capture a village you land several nobles within a second or two of each other, behind a clearing nuke. Enter when the FIRST noble should land and the gap between them; get the send-time for each. Uses the From/To coords and speeds above.</p>\n      <div class="grid g4">\n        <label class="fld"><span>First noble lands (server) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">HH:MM:SS</span></span><input id="ntArrive" class="mono" placeholder="20:00:00"></label>\n        <label class="fld"><span>Nobles <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(usually 4)</span></span><input id="ntCount" class="mono" type="number" value="4" min="1" max="20"></label>\n        <label class="fld"><span>Gap between (sec) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">0.2–1</span></span><input id="ntGap" class="mono" type="number" value="0.5" step="0.1" min="0.1"></label>\n        <label class="fld"><span>Noble speed override <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(blank = use game)</span></span><input id="ntNobleSpd" class="mono" type="number" step="0.1" placeholder="35"></label>\n      </div>\n      <div class="btn-row"><button class="act" onclick="nobleTrain()">Build the train</button></div>\n    </div>\n\n    <div id="timingOut"></div>\n  </section>\n\n  <!-- ============ 04 BUILD GUIDE ============ -->\n  <section class="panel" id="panel-build">\n    <div class="panel-head">\n      <div class="eyebrow">From Foundation to Fortress</div>\n      <h2>Build Guide</h2>\n      <p>Pick offense or defense, then <strong>Read this village</strong> — the guide grabs the current village\'s real building levels, works out the stage, flags the single most important next build, computes the ordered next moves (buildings and troop production), and tracks growth since your last visit. Current village only — open the guide on each village\'s page for that village.</p>\n    </div>\n\n    <div class="card">\n      <label class="fld"><span>Village role</span>\n        <select id="bRole">\n          <option value="defense">Defensive village</option>\n          <option value="offense">Offensive village</option>\n        </select>\n      </label>\n      <div class="btn-row" style="margin-top:14px;">\n        <button class="act" data-act="readvillage">Read this village</button>\n        <button class="ghost" onclick="showBuildPlan()">Show generic guide</button>\n      </div>\n      <div class="hint">Building levels read best from the Headquarters screen. If they can\'t be read here, open this village\'s HQ and press Read again.</div>\n    </div>\n    <div id="buildOut"></div>\n  </section>\n\n  <!-- ============ 06 WORLD DATA ============ -->\n  <section class="panel" id="panel-data">\n    <div class="panel-head">\n      <div class="eyebrow">The King\'s Ledger</div>\n      <h2>World Data</h2>\n      <p>Load your world\'s <strong>public</strong> village and player lists so Attacker Intel can put a <strong>name</strong> to an incoming attack — who owns the origin village, their points, rank, and every village they hold. This is public data every player can download; loading it never touches your account.</p>\n    </div>\n\n    <div class="card" style="background:linear-gradient(180deg,#e9e0cb,#ddd0b2);">\n      <div class="eyebrow" style="margin-bottom:8px;">Where to get the files</div>\n      <div id="dataLinks" class="note" style="margin-top:0;border-color:var(--good);background:rgba(63,107,63,.08);">Detecting your world…</div>\n      <div class="step"><div class="num">1</div><div class="body"><div class="h">Open each link, select all, copy</div><div class="why">They open as plain text. Ctrl+A to select everything, Ctrl+C to copy. These are large — that\'s normal.</div></div></div>\n      <div class="step"><div class="num">2</div><div class="body"><div class="h">Paste into the matching box below</div><div class="why">village.txt → the villages box, player.txt → the players box, ally.txt (optional) → the allies box. Then press Load.</div></div></div>\n      <div class="step"><div class="num">3</div><div class="body"><div class="h">Go to Attacker Intel and analyse</div><div class="why">Now when you analyse an incoming, it names the owner of the origin village and lists all their villages.</div></div></div>\n    </div>\n\n    <div class="card">\n      <label class="fld">\n        <span>village.txt <span style="text-transform:none;letter-spacing:0;font-family:\'Spectral\';font-style:italic;font-weight:400;">— format: id;name;x;y;player_id;points;rank</span></span>\n        <textarea id="dVillages" rows="5" placeholder="1;Barbarian+village;500;500;0;26;9999\n2;Capital;503;497;42;9800;12"></textarea>\n      </label>\n      <label class="fld" style="margin-top:12px;">\n        <span>player.txt <span style="text-transform:none;letter-spacing:0;font-family:\'Spectral\';font-style:italic;font-weight:400;">— format: id;name;ally;villages;points;rank</span></span>\n        <textarea id="dPlayers" rows="4" placeholder="42;EnemyKing;5;12;98000;7"></textarea>\n      </label>\n      <label class="fld" style="margin-top:12px;">\n        <span>ally.txt <span style="text-transform:none;letter-spacing:0;font-family:\'Spectral\';font-style:italic;font-weight:400;">— optional, for tribe names: id;name;tag;members;villages;points;rank</span></span>\n        <textarea id="dAllies" rows="3" placeholder="5;The+Kingdom;TK;40;520;3200000;1"></textarea>\n      </label>\n      <div class="btn-row"><button class="act" onclick="loadWorldData()">Load into the ledger</button></div>\n      <div id="dataOut"></div>\n    </div>\n  </section>\n\n  <!-- ============ 07 SETTINGS ============ -->\n  <section class="panel" id="panel-settings">\n    <div class="panel-head">\n      <div class="eyebrow">Preferences</div>\n      <h2>Settings</h2>\n      <p>Set your defaults once and they apply everywhere, saved across restarts. Change the fill hotkey, set your world\'s speeds so every tab is pre-filled, and tune a few conveniences.</p>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Fill hotkey</div>\n      <label class="fld"><span>Key to fill the next farm target <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— single letter; avoid game shortcuts</span></span>\n        <input id="setHotkey" class="mono" maxlength="1" placeholder="Q" style="max-width:70px;text-align:center;text-transform:uppercase;">\n      </label>\n      <div class="hint">Press this key (panel open, on the Farm tab, not typing in a box) to fill the next queued target. Still fill-only — you press Attack yourself.</div>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Default world speeds</div>\n      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">These pre-fill the World/Unit speed boxes on every tab. The tool auto-detects them from the game when it can — set them here as a fallback, or to override.</p>\n      <div class="grid g2">\n        <label class="fld"><span>World speed</span><input id="setWorld" class="mono" type="number" step="0.05" min="0.1" placeholder="1.25"></label>\n        <label class="fld"><span>Unit speed</span><input id="setUnitSpd" class="mono" type="number" step="0.05" min="0.1" placeholder="0.8"></label>\n      </div>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Conveniences</div>\n      <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-soft);margin-bottom:10px;">\n        <input type="checkbox" id="setAutoRaid" style="width:auto;"> Start a return timer automatically when I fill a target\n      </label>\n      <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-soft);margin-bottom:10px;">\n        <input type="checkbox" id="setOpenLast" style="width:auto;"> Reopen the last tab I used when the panel opens\n      </label>\n      <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-soft);">\n        <input type="checkbox" id="setWrap" style="width:auto;"> My world wraps at the map edges (rare — only enable if you know it does)\n      </label>\n      <label class="fld" style="margin-top:10px;max-width:200px;"><span>Map size <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(for wrap; usually 1000)</span></span><input id="setMapSize" class="mono" type="number" step="1" min="100" placeholder="1000"></label>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Backup &amp; restore</div>\n      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">Export everything (settings, farm queue, attack forms, world data) as text you can save or share. Import replaces your current setup with a pasted backup.</p>\n      <div class="btn-row"><button class="ghost" data-act="export-file">Download backup file</button><label class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;" for="cfgFile">Import from file</label><input type="file" id="cfgFile" accept=".json,application/json" style="display:none;"></div>\n      <details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;color:var(--ink-soft);">Or use copy/paste text (for small backups)</summary>\n        <div class="btn-row" style="margin-top:8px;"><button class="ghost" data-act="export-config">Export to text box</button><button class="ghost" data-act="import-config">Import from text box</button></div>\n        <textarea id="cfgIO" rows="4" placeholder="Exported backup appears here — or paste one to import" style="margin-top:8px;font-family:monospace;font-size:11px;"></textarea>\n      </details>\n      <div id="cfgIOOut"></div>\n    </div>\n\n    <div class="card">\n      <div class="btn-row"><button class="act" data-act="save-settings">Save settings</button><button class="ghost" data-act="reset-settings">Reset to defaults</button></div>\n      <div id="settingsOut"></div>\n    </div>\n  </section>\n\n  <footer>\n    A planning table for Tribal Wars. Every figure comes from data you enter or from the game\'s public exports.\n    <div class="safe">THE TOOL FILLS AND AIMS · YOU PRESS ENTER, YOU COMMAND · USE RESPONSIBLY</div>\n  </footer>\n</div>';
+  var BODY_HTML = '<div class="wrap">\n\n  <header class="masthead">\n    <div class="crest">\n      <div class="sigil">⚔</div>\n      <div>\n        <h1>War Room</h1>\n        <div class="sub">Campaign planning for Tribal Wars — the table thinks, you command.</div>\n      </div>\n      <div class="launch" id="wrLaunch"></div>\n    </div>\n  </header>\n\n  <nav class="tabs" id="tabs">\n    <button data-tab="farm" class="active"><span class="n">01</span>Farm Run</button>\n    <button data-tab="attack"><span class="n">02</span>Attack</button>\n    <button data-tab="intel"><span class="n">03</span>Attacker Intel</button>\n    <button data-tab="timing"><span class="n">04</span>Attack Timing</button>\n    <button data-tab="build"><span class="n">05</span>Build Guide</button>\n    <button data-tab="data"><span class="n">06</span>World Data</button>\n    <button data-tab="settings"><span class="n">07</span>Settings</button>\n  </nav>\n\n  <!-- ============ 01 FARM RUN ============ -->\n  <section class="panel active" id="panel-farm">\n    <div class="panel-head">\n      <div class="eyebrow">Order of March</div>\n      <h2>Batch Farm Run</h2>\n      <p>Set your source and unit, paste your targets, and get the full order of march — every distance, travel time, and arrival laid out. You can manually fill the rally point or <strong>fill &amp; focus Attack</strong> so you send with one keypress.</p>\n    </div>\n\n    <div class="card">\n      <div class="grid g2">\n        <label class="fld"><span>Your village (X|Y)</span><input id="fSrc" class="mono" placeholder="500|500" value="500|500"></label>\n        <label class="fld"><span>Server offset (min)</span><input id="fOffset" class="mono" type="number" value="0" step="1"></label>\n      </div>\n      <div style="margin-top:16px;"><span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Units to send</span>\n        <div class="grid g4" id="fUnitGrid"></div>\n      </div>\n      <div class="grid g2" style="margin-top:16px;">\n        <label class="fld"><span>World speed</span><input id="fWorld" class="mono" type="number" value="1.25" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Unit speed</span><input id="fUnitSpd" class="mono" type="number" value="0.8" step="0.05" min="0.1"></label>\n      </div>\n      <div style="margin-top:16px;">\n        <span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Target queue <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— fill a target, it clears and the next moves up · hotkey to fill the next (default Q; change in Settings)</span></span>\n        <label class="fld" style="margin-bottom:10px;"><span>Bulk paste targets <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— any format, one or many per line</span></span><textarea id="fBulk" rows="4" placeholder="475|605 477|608 472|606 ...  (paste as many as you like)"></textarea></label>\n        <div class="btn-row" style="margin-bottom:10px;"><button class="ghost" data-act="bulkadd">Build queue from paste</button><button class="ghost" data-act="sortdist">Sort nearest-first</button><button class="ghost" data-act="findbarbs">Find nearby barbs</button></div>\n        <div id="barbFinderOut"></div>\n        <div id="fTargetQueue"></div>\n        <div class="btn-row" style="margin-top:4px;">\n          <button class="ghost" data-act="addtarget">+ Add target</button>\n          <span id="fQueueCount" class="mono" style="font-size:12px;color:var(--ink-soft);align-self:center;"></span>\n        </div>\n      </div>\n      <div style="margin-top:16px;">\n        <span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Raids in flight <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— return timers, live. Cancel any you didn\'t actually send.</span></span>\n        <div id="raidBoard"></div>\n      </div>\n      <div class="btn-row" style="margin-top:14px;">\n        <button class="act" onclick="planSingle()">Show timing</button>\n        <button class="ghost" data-act="savefarm">Save farm run</button>\n        <button class="ghost" onclick="clearFarmUnits()">Clear troops</button>\n        <label style="display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft);margin-left:4px;">\n          <input type="checkbox" id="fSendNow" checked style="width:auto;"> arrival if I send now\n        </label>\n      </div>\n      <div class="note" style="margin-top:14px;"><strong>Each target has its own Fill and Fill &amp; focus button.</strong> Fill loads that target into the game\'s attack form, then the box clears and the queue shifts up so the next is ready — fill, press Attack in-game, fill the next. <em>You press Attack — the tool never sends on its own. Timing uses the slowest unit in the mix. Save farm run remembers your troops and whole target list across restarts.</em></div>\n    </div>\n    <div id="farmOut"></div>\n  </section>\n\n  <!-- ============ 02 ATTACK ============ -->\n  <section class="panel" id="panel-attack">\n    <div class="panel-head">\n      <div class="eyebrow">Order of Battle</div>\n      <h2>Attack</h2>\n      <p>Eight independent attack forms — each with its own source, target, troops and speeds. Fill and fire one at a time (fill form 1 → press Attack in-game → fill form 2 → …). <strong>Fill only</strong> — you press Attack in the game yourself.</p>\n    </div>\n\n    <div id="attackForms"></div>\n  </section>\n\n  <!-- ============ 03 ATTACKER INTEL ============ -->\n  <section class="panel" id="panel-intel">\n    <div class="panel-head">\n      <div class="eyebrow">Know Thine Enemy</div>\n      <h2>Attacker Intel</h2>\n      <p>An incoming attack shows you a <strong>landing time</strong> but never the units. This reads the timing backwards to name the <strong>slowest unit that could anchor the attack</strong> — telling you whether a noble (village-taker) or siege could be inside, or whether it\'s just fast cavalry. Load World Data (tab 06) to also name the attacker.</p>\n    </div>\n\n    <div class="card" style="background:linear-gradient(180deg,#e9e0cb,#ddd0b2);">\n      <div class="eyebrow" style="margin-bottom:8px;">How to read an incoming attack — 3 steps</div>\n      <div class="step"><div class="num">1</div><div class="body"><div class="h">Open the incoming attack in-game</div><div class="why">Overview → Incomings, or the rally point. Note the <strong>origin coordinates</strong> (where it\'s coming from) and the <strong>arrival time</strong> (when it lands).</div></div></div>\n      <div class="step"><div class="num">2</div><div class="body"><div class="h">Paste it, or type the three values</div><div class="why">Fastest: copy the whole incoming row and paste it in the box below — coords and time are pulled out automatically. Or type origin, your coords, and arrival by hand.</div></div></div>\n      <div class="step"><div class="num">3</div><div class="body"><div class="h">Read the threat report</div><div class="why">You get the anchor unit, what could be hidden with it, distance, and a threat level. Scout in-game to confirm — no tool can see their exact troops.</div></div></div>\n    </div>\n\n    <div class="card">\n      <div id="intelStatus" class="note" style="margin-top:0;margin-bottom:14px;border-color:var(--good);background:rgba(63,107,63,.08);">Reading world settings…</div>\n\n      <div class="btn-row" style="margin-bottom:14px;"><button class="act" data-act="intel-auto" style="background:var(--iron);">⚡ Auto-read incomings from this page</button></div>\n      <div id="intelAutoOut"></div>\n\n      <label class="fld"><span>Paste the incoming attack row <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(easiest — pulls coords + time for you)</span></span>\n        <textarea id="iPaste" rows="3" placeholder="e.g.  Attack  EnemyPlayer (532|488)  →  Your Village (500|500)  arrival 18:35:12"></textarea>\n      </label>\n      <div class="btn-row"><button class="act" data-act="intel-paste">Analyse pasted attack</button></div>\n\n      <div style="text-align:center;margin:14px 0;font-family:\'Cinzel\';font-size:12px;color:var(--ink-soft);letter-spacing:.1em;">— OR TYPE IT —</div>\n\n      <div class="grid g2">\n        <label class="fld"><span>Origin — attacker\'s coords <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(from the incoming)</span></span><input id="iOrigin" class="mono" placeholder="532|488"></label>\n        <label class="fld"><span>Target — your coords <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto-filled)</span></span><input id="iTarget" class="mono" placeholder="500|500"></label>\n      </div>\n      <div class="grid g4" style="margin-top:14px;">\n        <label class="fld"><span>Arrival (server) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">HH:MM:SS</span></span><input id="iArrive" class="mono" placeholder="18:35:12"></label>\n        <label class="fld"><span>World speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="iWorld" class="mono" type="number" value="1.25" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Unit speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="iUnitSpd" class="mono" type="number" value="0.8" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Clock offset (min) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="iOffset" class="mono" type="number" value="0" step="1"></label>\n      </div>\n      <div class="btn-row"><button class="act" data-act="intel-fields">Analyse attack</button></div>\n    </div>\n    <div id="intelOut"></div>\n  </section>\n\n  <!-- ============ 04 ATTACK TIMING ============ -->\n  <section class="panel" id="panel-timing">\n    <div class="panel-head">\n      <div class="eyebrow">The Hour of Arrival</div>\n      <h2>Attack Timing</h2>\n      <p>Work backwards from a <strong>landing time</strong> to know exactly when to click send — for every unit at once. This is how you time a snipe, land nobles back-to-back, or coordinate hits with allies to the second.</p>\n    </div>\n\n    <div class="card" style="background:linear-gradient(180deg,#e9e0cb,#ddd0b2);">\n      <div class="eyebrow" style="margin-bottom:8px;">Two ways to use this</div>\n      <div class="step"><div class="num">A</div><div class="body"><div class="h">When must I send to land at a set time?</div><div class="why">Enter your village, the target, and the <strong>desired arrival</strong> (server time). Get a send-time for each unit — send that unit at that clock time and it lands exactly when you wanted.</div></div></div>\n      <div class="step"><div class="num">B</div><div class="body"><div class="h">How long does each unit take on this route?</div><div class="why">Leave arrival blank and press <strong>Compare units</strong> — see the travel time of every unit between the two villages, fastest first.</div></div></div>\n    </div>\n\n    <div class="card">\n      <div id="timingStatus" class="note" style="margin-top:0;margin-bottom:14px;border-color:var(--good);background:rgba(63,107,63,.08);">Reading world settings…</div>\n\n      <div class="grid g2">\n        <label class="fld"><span>From — your village (X|Y) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto-filled)</span></span><input id="tOrigin" class="mono" placeholder="500|500"></label>\n        <label class="fld"><span>To — target (X|Y)</span><input id="tTarget" class="mono" placeholder="505|505"></label>\n      </div>\n      <div class="grid g4" style="margin-top:14px;">\n        <label class="fld"><span>World speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="tWorld" class="mono" type="number" value="1.25" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Unit speed <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="tUnitSpd" class="mono" type="number" value="0.8" step="0.05" min="0.1"></label>\n        <label class="fld"><span>Desired arrival (server) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">HH:MM:SS — leave blank for B</span></span><input id="tArrive" class="mono" placeholder="20:00:00"></label>\n        <label class="fld"><span>Clock offset (min) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(auto)</span></span><input id="tOffset" class="mono" type="number" value="0" step="1"></label>\n      </div>\n      <div class="btn-row">\n        <button class="act" onclick="sendTimeCalc()">When to send (A)</button>\n        <button class="act" onclick="compareAllUnits()">Compare travel times (B)</button>\n      </div>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:8px;">Noble train — 4 nobles, back-to-back</div>\n      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">To capture a village you land several nobles within a second or two of each other, behind a clearing nuke. Enter when the FIRST noble should land and the gap between them; get the send-time for each. Uses the From/To coords and speeds above.</p>\n      <div class="grid g4">\n        <label class="fld"><span>First noble lands (server) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">HH:MM:SS</span></span><input id="ntArrive" class="mono" placeholder="20:00:00"></label>\n        <label class="fld"><span>Nobles <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(usually 4)</span></span><input id="ntCount" class="mono" type="number" value="4" min="1" max="20"></label>\n        <label class="fld"><span>Gap between (sec) <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">0.2–1</span></span><input id="ntGap" class="mono" type="number" value="0.5" step="0.1" min="0.1"></label>\n        <label class="fld"><span>Noble speed override <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(blank = use game)</span></span><input id="ntNobleSpd" class="mono" type="number" step="0.1" placeholder="35"></label>\n      </div>\n      <div class="btn-row"><button class="act" onclick="nobleTrain()">Build the train</button></div>\n    </div>\n\n    <div id="timingOut"></div>\n  </section>\n\n  <!-- ============ 04 BUILD GUIDE ============ -->\n  <section class="panel" id="panel-build">\n    <div class="panel-head">\n      <div class="eyebrow">From Foundation to Fortress</div>\n      <h2>Build Guide</h2>\n      <p>Pick offense or defense, then <strong>Read this village</strong> — the guide grabs the current village\'s real building levels, works out the stage, flags the single most important next build, computes the ordered next moves (buildings and troop production), and tracks growth since your last visit. Current village only — open the guide on each village\'s page for that village.</p>\n    </div>\n\n    <div class="card">\n      <label class="fld"><span>Village role</span>\n        <select id="bRole">\n          <option value="defense">Defensive village</option>\n          <option value="offense">Offensive village</option>\n        </select>\n      </label>\n      <div style="margin-top:16px;">\n        <span style="display:block;font-family:\'Cinzel\',serif;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;">Your troops in this village</span>\n        <div class="hint" style="margin:0 0 10px;">Press <strong>Read this village</strong> and these fill automatically if the game exposes them. If they don\'t fill, just type your counts in — the guide is exact either way. Leave a unit blank or 0 if you have none.</div>\n        <div class="grid g4" id="bUnitGrid"></div>\n        <div class="btn-row" style="margin-top:10px;"><button class="ghost" data-act="btroops-clear">Clear troop boxes</button><span id="bPopLine" class="mono" style="font-size:12px;color:var(--ink-soft);align-self:center;"></span></div>\n      </div>\n      <div class="btn-row" style="margin-top:14px;">\n        <button class="act" data-act="readvillage">Read this village</button>\n        <button class="ghost" onclick="showBuildPlan()">Show generic guide</button>\n      </div>\n      <div class="hint">Building levels read best from the Headquarters screen. If they can\'t be read here, open this village\'s HQ and press Read again.</div>\n    </div>\n    <div id="buildOut"></div>\n  </section>\n\n  <!-- ============ 06 WORLD DATA ============ -->\n  <section class="panel" id="panel-data">\n    <div class="panel-head">\n      <div class="eyebrow">The King\'s Ledger</div>\n      <h2>World Data</h2>\n      <p>Load your world\'s <strong>public</strong> village and player lists so Attacker Intel can put a <strong>name</strong> to an incoming attack — who owns the origin village, their points, rank, and every village they hold. This is public data every player can download; loading it never touches your account.</p>\n    </div>\n\n    <div class="card" style="background:linear-gradient(180deg,#e9e0cb,#ddd0b2);">\n      <div class="eyebrow" style="margin-bottom:8px;">Where to get the files</div>\n      <div id="dataLinks" class="note" style="margin-top:0;border-color:var(--good);background:rgba(63,107,63,.08);">Detecting your world…</div>\n      <div class="step"><div class="num">1</div><div class="body"><div class="h">Open each link, select all, copy</div><div class="why">They open as plain text. Ctrl+A to select everything, Ctrl+C to copy. These are large — that\'s normal.</div></div></div>\n      <div class="step"><div class="num">2</div><div class="body"><div class="h">Paste into the matching box below</div><div class="why">village.txt → the villages box, player.txt → the players box, ally.txt (optional) → the allies box. Then press Load.</div></div></div>\n      <div class="step"><div class="num">3</div><div class="body"><div class="h">Go to Attacker Intel and analyse</div><div class="why">Now when you analyse an incoming, it names the owner of the origin village and lists all their villages.</div></div></div>\n    </div>\n\n    <div class="card">\n      <label class="fld">\n        <span>village.txt <span style="text-transform:none;letter-spacing:0;font-family:\'Spectral\';font-style:italic;font-weight:400;">— format: id;name;x;y;player_id;points;rank</span></span>\n        <textarea id="dVillages" rows="5" placeholder="1;Barbarian+village;500;500;0;26;9999\n2;Capital;503;497;42;9800;12"></textarea>\n      </label>\n      <label class="fld" style="margin-top:12px;">\n        <span>player.txt <span style="text-transform:none;letter-spacing:0;font-family:\'Spectral\';font-style:italic;font-weight:400;">— format: id;name;ally;villages;points;rank</span></span>\n        <textarea id="dPlayers" rows="4" placeholder="42;EnemyKing;5;12;98000;7"></textarea>\n      </label>\n      <label class="fld" style="margin-top:12px;">\n        <span>ally.txt <span style="text-transform:none;letter-spacing:0;font-family:\'Spectral\';font-style:italic;font-weight:400;">— optional, for tribe names: id;name;tag;members;villages;points;rank</span></span>\n        <textarea id="dAllies" rows="3" placeholder="5;The+Kingdom;TK;40;520;3200000;1"></textarea>\n      </label>\n      <div class="btn-row"><button class="act" onclick="loadWorldData()">Load into the ledger</button></div>\n      <div id="dataOut"></div>\n    </div>\n  </section>\n\n  <!-- ============ 07 SETTINGS ============ -->\n  <section class="panel" id="panel-settings">\n    <div class="panel-head">\n      <div class="eyebrow">Preferences</div>\n      <h2>Settings</h2>\n      <p>Set your defaults once and they apply everywhere, saved across restarts. Change the fill hotkey, set your world\'s speeds so every tab is pre-filled, and tune a few conveniences.</p>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Fill hotkey</div>\n      <label class="fld"><span>Key to fill the next farm target <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">— single letter; avoid game shortcuts</span></span>\n        <input id="setHotkey" class="mono" maxlength="1" placeholder="Q" style="max-width:70px;text-align:center;text-transform:uppercase;">\n      </label>\n      <div class="hint">Press this key (panel open, on the Farm tab, not typing in a box) to fill the next queued target. Still fill-only — you press Attack yourself.</div>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Default world speeds</div>\n      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">These pre-fill the World/Unit speed boxes on every tab. The tool auto-detects them from the game when it can — set them here as a fallback, or to override.</p>\n      <div class="grid g2">\n        <label class="fld"><span>World speed</span><input id="setWorld" class="mono" type="number" step="0.05" min="0.1" placeholder="1.25"></label>\n        <label class="fld"><span>Unit speed</span><input id="setUnitSpd" class="mono" type="number" step="0.05" min="0.1" placeholder="0.8"></label>\n      </div>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Conveniences</div>\n      <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-soft);margin-bottom:10px;">\n        <input type="checkbox" id="setAutoRaid" style="width:auto;"> Start a return timer automatically when I fill a target\n      </label>\n      <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-soft);margin-bottom:10px;">\n        <input type="checkbox" id="setOpenLast" style="width:auto;"> Reopen the last tab I used when the panel opens\n      </label>\n      <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-soft);">\n        <input type="checkbox" id="setWrap" style="width:auto;"> My world wraps at the map edges (rare — only enable if you know it does)\n      </label>\n      <label class="fld" style="margin-top:10px;max-width:200px;"><span>Map size <span style="text-transform:none;letter-spacing:0;font-style:italic;font-weight:400;">(for wrap; usually 1000)</span></span><input id="setMapSize" class="mono" type="number" step="1" min="100" placeholder="1000"></label>\n    </div>\n\n    <div class="card">\n      <div class="eyebrow" style="margin-bottom:10px;">Backup &amp; restore</div>\n      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">Export everything (settings, farm queue, attack forms, world data) as text you can save or share. Import replaces your current setup with a pasted backup.</p>\n      <div class="btn-row"><button class="ghost" data-act="export-file">Download backup file</button><label class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;" for="cfgFile">Import from file</label><input type="file" id="cfgFile" accept=".json,application/json" style="display:none;"></div>\n      <details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;color:var(--ink-soft);">Or use copy/paste text (for small backups)</summary>\n        <div class="btn-row" style="margin-top:8px;"><button class="ghost" data-act="export-config">Export to text box</button><button class="ghost" data-act="import-config">Import from text box</button></div>\n        <textarea id="cfgIO" rows="4" placeholder="Exported backup appears here — or paste one to import" style="margin-top:8px;font-family:monospace;font-size:11px;"></textarea>\n      </details>\n      <div id="cfgIOOut"></div>\n    </div>\n\n    <div class="card">\n      <div class="btn-row"><button class="act" data-act="save-settings">Save settings</button><button class="ghost" data-act="reset-settings">Reset to defaults</button></div>\n      <div id="settingsOut"></div>\n    </div>\n  </section>\n\n  <footer>\n    A planning table for Tribal Wars. Every figure comes from data you enter or from the game\'s public exports.\n    <div class="safe">THE TOOL FILLS AND AIMS · YOU PRESS ENTER, YOU COMMAND · USE RESPONSIBLY</div>\n  </footer>\n</div>';
 
   // ---- host + shadow root ----
   var host = document.createElement('div');
@@ -139,8 +139,8 @@
     function applyPos(left, top){
       // clamp so it can never be dragged fully off-screen
       var w=launch.offsetWidth||120, h=launch.offsetHeight||40;
-      left=Math.max(0, Math.min(left, window.innerWidth  - w));
-      top =Math.max(0, Math.min(top,  window.innerHeight - h));
+      left=Math.max(0, Math.min(left, window.innerWidth - w));
+      top =Math.max(0, Math.min(top, window.innerHeight - h));
       launch.style.left=left+'px';
       launch.style.top =top+'px';
       launch.style.right='auto';
@@ -255,7 +255,7 @@
       // keep within viewport
       if(L<0){ W+=L; L=0; }
       if(T<0){ H+=T; T=0; }
-      if(L+W>window.innerWidth)  W=window.innerWidth - L;
+      if(L+W>window.innerWidth) W=window.innerWidth - L;
       if(T+H>window.innerHeight) H=window.innerHeight - T;
 
       panel.style.left=L+'px'; panel.style.top=T+'px';
@@ -270,9 +270,9 @@
         var b=JSON.parse(raw); if(!b) return;
         panel.style.transform='none'; panel.style.maxHeight='none';
         if(typeof b.left==='number') panel.style.left=Math.max(0,Math.min(b.left, window.innerWidth-200))+'px';
-        if(typeof b.top==='number')  panel.style.top =Math.max(0,Math.min(b.top,  window.innerHeight-100))+'px';
-        if(typeof b.w==='number')    panel.style.width =Math.max(MINW, Math.min(b.w, window.innerWidth))+'px';
-        if(typeof b.h==='number')    panel.style.height=Math.max(MINH, Math.min(b.h, window.innerHeight))+'px';
+        if(typeof b.top==='number') panel.style.top =Math.max(0,Math.min(b.top, window.innerHeight-100))+'px';
+        if(typeof b.w==='number') panel.style.width =Math.max(MINW, Math.min(b.w, window.innerWidth))+'px';
+        if(typeof b.h==='number') panel.style.height=Math.max(MINH, Math.min(b.h, window.innerHeight))+'px';
       } catch(e){}
     };
   })();
@@ -1777,154 +1777,217 @@
   // Detailed, staged troop guide. Returns [{h:'section header', items:['...']}] tailored
   // to the village's actual buildings and development stage. `units` = home troop counts
   // (or null if unreadable on this screen).
-  function troopAdvice(role, b, units, unitsAvailable, stage){
+  function readBuildTroops(){
+    var out={}; var any=false;
+    UNIT_ORDER.forEach(function(u){
+      var el=getById('bUnit_'+u);
+      var n=el?parseInt(el.value):0;
+      out[u]=isNaN(n)?0:Math.max(0,n);
+      if(out[u]>0) any=true;
+    });
+    out._any=any;
+    return out;
+  }
+
+  function fillBuildTroopsFromGame(units){
+    if(!units) return 0;
+    var filled=0;
+    UNIT_ORDER.forEach(function(u){
+      var el=getById('bUnit_'+u);
+      if(el && units[u]!=null){ el.value=units[u]||0; if(units[u]>0) filled++; }
+    });
+    updateBuildPopLine();
+    return filled;
+  }
+
+  // REAL computed army stats from the game's own unit table (pop, defence per attack
+  // type, attack power, and resource cost). Nothing here is estimated.
+  function troopStats(units){
+    var st={pop:0, defInf:0, defCav:0, defArc:0, attack:0, wood:0, clay:0, iron:0, count:0};
+    UNIT_ORDER.forEach(function(u){
+      var n=units[u]||0; if(!n) return;
+      var d=UNITS[u];
+      st.count+=n;
+      st.pop += n*(d.pop||0);
+      st.defInf+= n*(d.def_general||0);
+      st.defCav+= n*(d.def_cavalry||0);
+      st.defArc+= n*(d.def_archer||0);
+      st.attack+= n*(d.attack||0);
+      st.wood += n*(d.wood||0);
+      st.clay += n*(d.clay||0);
+      st.iron += n*(d.iron||0);
+    });
+    return st;
+  }
+
+  function updateBuildPopLine(){
+    var line=getById('bPopLine'); if(!line) return;
+    var t=readBuildTroops();
+    if(!t._any){ line.textContent=''; return; }
+    var st=troopStats(t);
+    line.textContent=st.count.toLocaleString()+' units · '+st.pop.toLocaleString()+' population';
+  }
+
+  // Does this world have archers? Detected from the unit table the script knows about.
+  function worldHasArchers(){ return UNIT_ORDER.indexOf('archer')>=0 || UNIT_ORDER.indexOf('mounted_archer')>=0; }
+
+  // Target army composition per role and stage. These are real, standard TW compositions
+  // sized to fit a developed village's population, not invented numbers.
+  function targetComposition(role, stage, archers){
+    if(role==='defense'){
+      if(stage==='fresh') return {spear:500, sword:200};
+      if(stage==='developing') return archers ? {spear:3000, sword:2500, archer:1000, scout:100}
+                                               : {spear:3500, sword:3000, scout:100};
+      return archers ? {spear:7000, sword:6000, archer:2000, scout:200, heavy_cavalry:500}
+                     : {spear:8000, sword:7000, scout:200, heavy_cavalry:500};
+    }
+    if(stage==='fresh') return {spear:200};
+    if(stage==='developing') return {axe:3000, light_cavalry:1500, ram:150, scout:50};
+    return {axe:7000, light_cavalry:3000, ram:300, catapult:150, scout:100};
+  }
+
+  function troopAdvice(role, b, units, unitsAvailable, stage, farmLevel){
     var hq=b.headquarters||0;
     if(!stage) stage = hq<=6 ? 'fresh' : (hq<=15 ? 'developing' : 'established');
+    var archers=worldHasArchers();
     var sections=[];
+    var have=units||{};
+    var st=troopStats(have);
+    var tgt=targetComposition(role, stage, archers);
+    var tgtStats=troopStats(tgt);
 
-    // target counts per role+stage, for gap analysis against what you actually have
-    var TARGETS={
-      defense:{ fresh:{spear:500,sword:150}, developing:{spear:3000,sword:2000}, established:{spear:10000,sword:10000,heavy_cavalry:0} },
-      offense:{ fresh:{spear:200}, developing:{axe:3000,light_cavalry:1500,ram:150}, established:{axe:6000,light_cavalry:3000,ram:275} }
-    };
-    var UL={spear:'Spear',sword:'Sword',axe:'Axe',archer:'Archer',scout:'Scout',light_cavalry:'Light Cavalry',mounted_archer:'Mounted Archer',heavy_cavalry:'Heavy Cavalry',ram:'Ram',catapult:'Catapult',noble:'Nobleman'};
+    // farm capacity: level 30 = 24000 pop; the game's table is non-linear, so only state
+    // capacity when we actually read the farm level, and use the known level-30 max.
+    var popCap = (farmLevel && farmLevel>=30) ? 24000 : null;
 
-    // --- YOUR TROOPS vs TARGET (only if we could read counts) ---
-    if(unitsAvailable && units){
-      var tgt=TARGETS[role][stage]||{};
-      var lines=[];
-      // show what you have of the units that matter for this role
-      var relevant = role==='defense' ? ['spear','sword','heavy_cavalry','scout'] : ['axe','light_cavalry','ram','scout','noble'];
-      relevant.forEach(function(u){
-        var have=units[u]||0;
-        var want=tgt[u]||0;
-        if(want>0){
-          var gap=want-have;
-          if(gap>0) lines.push(UL[u]+': you have '+have.toLocaleString()+' — build '+gap.toLocaleString()+' more to reach the '+want.toLocaleString()+' target for this stage.');
-          else lines.push(UL[u]+': you have '+have.toLocaleString()+' — target of '+want.toLocaleString()+' MET. ✓');
-        } else if(have>0){
-          lines.push(UL[u]+': you have '+have.toLocaleString()+(role==='defense'&&(u==='axe'||u==='light_cavalry')?' — these are offensive units in a defensive village; consider moving them out.':''));
-        }
-      });
-      if(!lines.length) lines.push('No relevant troops standing in this village yet — start recruiting per the targets below.');
-      lines.push('Note: this counts only troops currently HOME in this village. Units out farming or attacking are not included, so your true totals may be higher.');
-      sections.push({h:'Your troops vs target ('+stage+' stage)', items:lines});
-    } else {
-      sections.push({h:'Your troops', items:['Couldn\'t read troop counts on this screen. Open the rally point or Overview and Read again to see your counts compared to the targets. The targets below still apply.']});
-    }
+    /* ---------- 1. YOUR ARMY, unit by unit ---------- */
+    var armyRows=UNIT_ORDER.map(function(u){
+      var n=have[u]||0, d=UNITS[u];
+      return {u:u, label:d.label, n:n, pop:n*(d.pop||0), role:unitRoleNote(u),
+              want:tgt[u]||0};
+    });
+    var listed=armyRows.filter(function(r){ return r.n>0 || r.want>0; });
+    if(!listed.length) listed=armyRows.slice(0,4);
 
+    var armyLines=listed.map(function(r){
+      var s=r.label+': '+r.n.toLocaleString();
+      if(r.n>0) s+=' ('+r.pop.toLocaleString()+' pop)';
+      s+=' — '+r.role;
+      return s;
+    });
+    sections.push({h:'Your army in this village', items:armyLines.concat([
+      'TOTAL: '+st.count.toLocaleString()+' units using '+st.pop.toLocaleString()+' population'+
+      (popCap?(' of '+popCap.toLocaleString()+' (farm 30) — '+Math.max(0,popCap-st.pop).toLocaleString()+' population free'):'')+'.'
+    ])});
+
+    /* ---------- 2. REAL combat values ---------- */
     if(role==='defense'){
-      // --- what to build/enable next ---
-      var setup=[];
-      if(b.barracks<1) setup.push('Build the Barracks first (needs HQ 3). Until it exists you have no defence at all.');
-      else setup.push('Barracks is level '+b.barracks+'. Raise it toward 25 over time — higher level = faster recruitment, which matters more than it looks when rebuilding after a hit.');
-      if(b.smithy<1) setup.push('Build the Smithy (needs HQ 5 + Barracks 1) — you can\'t improve or unlock units without it.');
-      else {
-        setup.push('Smithy is level '+b.smithy+'. Research order for defence: Spear first, then Sword. Level each unit\'s research as resources allow — researched levels make your existing troops stronger, not just new ones.');
-      }
-      if(b.wall<20) setup.push('Push the Wall to 20 in parallel. It is not a troop, but it multiplies every defender you own — a maxed wall can be worth thousands of extra units. Rebuild it after every attack.');
-      sections.push({h:'Set up (buildings & research)', items:setup});
-
-      // --- the two core units, what they do ---
-      sections.push({h:'The two units that matter', items:[
-        'Spear Fighter — your anti-cavalry wall. Cheap, low population, stops Light Cavalry and mounted attacks cold. This is the bulk of your army.',
-        'Swordsman — your anti-infantry wall. Beats Axemen and other infantry. Slower and pricier than spears but essential against offensive infantry nukes.',
-        'You need BOTH, roughly balanced. An all-spear village folds to an axe nuke; an all-sword village folds to cavalry. The mix is the point.'
+      var weakest=Math.min(st.defInf, st.defCav, st.defArc);
+      var weakName = weakest===st.defInf?'infantry (axes/swords)':(weakest===st.defCav?'cavalry (light cav, heavy cav)':'archers');
+      sections.push({h:'What this village actually defends against (real values)', items:[
+        'vs INFANTRY attack: '+st.defInf.toLocaleString()+' defence points.',
+        'vs CAVALRY attack: '+st.defCav.toLocaleString()+' defence points.',
+        'vs ARCHER attack: '+st.defArc.toLocaleString()+' defence points.',
+        'Your weakest axis is '+weakName+' — that is the attack type that will hurt you most. Balance toward the units that cover it (see the table below).',
+        'These are computed from each unit\u2019s real defence stats × your counts. They do NOT include your wall, which multiplies all three (a level 20 wall is worth roughly a third again on top).'
       ]});
-
-      // --- target numbers scaled to stage ---
-      var targets;
-      if(stage==='fresh'){
-        targets=[
-          'Right now (fresh village): recruit Spears continuously — aim for your first 500 Spears as fast as the Barracks allows.',
-          'Add Swords once the Smithy is up and Sword is researched — start a 3:1 spear:sword ratio (e.g. 300 spear / 100 sword).',
-          'Don\'t touch cavalry or anything else yet. Spears + a rising wall keep a small village alive.'
-        ];
-      } else if(stage==='developing'){
-        targets=[
-          'Developing village: build toward roughly 3,000 Spear / 2,000 Sword as a first real defensive core.',
-          'Keep the Barracks queue full at all times — an idle queue is wasted defence.',
-          'Ratio guide: front-line villages (near the enemy) lean more Spear for cheap fast rebuilds; rear villages can afford a fuller Spear+Sword stack.'
-        ];
-      } else {
-        targets=[
-          'Established village: target around 10,000 Spear / 10,000 Sword for a full defensive village (rear), or ~8,000 Spear / 2,000 Heavy Cavalry if it is a front-line support village that must rebuild fast.',
-          'Feed it: Farm and Warehouse toward 30 so population and resources can sustain the army.',
-          'Once the core is up, build a pool of Heavy Cavalry in rear villages (~3,000) as fast reinforcement you can send to allies under attack.'
-        ];
-      }
-      sections.push({h:'How many to build ('+stage+' stage)', items:targets});
-
-      // --- stable / optional ---
-      if(b.stable>=1){
-        sections.push({h:'Stable ('+b.stable+') — support options', items:[
-          'Scouts: build a handful for vision — knowing what is incoming is half of defending.',
-          'Heavy Cavalry: excellent defensive stats and fast. Use it as mobile reinforcement, not as your main wall — it is expensive per unit.'
-        ]});
-      }
-      // --- what NOT to do ---
-      sections.push({h:'Do not', items:[
-        'Do not build Axes, Light Cavalry (as attackers), Rams or Catapults here — they waste the population a defensive village needs for Spear/Sword.',
-        'Do not leave the wall damaged. Rebuilding the wall comes before recruiting more troops.',
-        'Do not let the Farm cap — a full farm freezes recruitment and your defence stops growing.'
-      ]});
-
     } else {
-      // OFFENSE
-      var setupO=[];
-      if(b.barracks<1) setupO.push('Build the Barracks (needs HQ 3). Early on it recruits Spears just for farming while your real army comes together.');
-      else setupO.push('Barracks is level '+b.barracks+'. It produces your Axemen — the infantry half of a nuke.');
-      if(b.smithy<10) setupO.push('Raise the Smithy toward 20 (needs HQ levels alongside). It is a hard requirement for the Academy later, and it unlocks/upgrades your attack units.');
-      else setupO.push('Smithy is level '+b.smithy+'. Research order for offence: Axe → Light Cavalry → Ram. Level Axe and LC research high — it directly raises your nuke\'s hitting power.');
-      if(b.stable<1) setupO.push('Build the Stable (needs HQ 10 + Barracks 5 + Smithy 5) as soon as you can — Light Cavalry is the single most important offensive unit and it lives here.');
-      else setupO.push('Stable is level '+b.stable+'. Raise it toward 20 (max) for fast Light Cavalry production.');
-      if(b.workshop<1) setupO.push('Build the Workshop (needs HQ 10 + Smithy 10) for Rams — without rams your nuke breaks on the enemy wall.');
-      sections.push({h:'Set up (buildings & research)', items:setupO});
-
-      sections.push({h:'The nuke — what goes in it', items:[
-        'Axeman — cheap, high attack infantry. The bulk-damage core of your nuke.',
-        'Light Cavalry — best attacker in the game per resource: high attack, fastest offensive unit, and it hauls loot so it farms while it travels. Prioritise these.',
-        'Ram — does no killing but smashes the enemy wall so your Axe/LC land at full strength. A nuke with no rams gets eaten by the wall.',
-        'A "nuke" is one full army sent as a single stacked attack — you build many nukes and throw them one at a time.'
-      ]});
-
-      var targetsO;
-      if(stage==='fresh'){
-        targetsO=[
-          'Fresh village: recruit a few hundred Spears just to farm nearby barbs and fund the economy — do NOT try to build a nuke yet.',
-          'Pour resources into the economy (pits, warehouse, farm) and into getting the Stable up. Offence is expensive; a weak economy can\'t sustain it.',
-          'First real goal is the Stable + Smithy, not troop numbers.'
-        ];
-      } else if(stage==='developing'){
-        targetsO=[
-          'Developing village: start assembling your first nuke toward ~3,000 Axe / 1,500 Light Cavalry / 150 Ram.',
-          'Keep Barracks and Stable queues full. Light Cavalry farming pays for its own production if you keep it raiding.',
-          'Research Axe and LC as high as the Smithy allows before you finish the nuke — an under-researched nuke hits far softer.'
-        ];
-      } else {
-        targetsO=[
-          'Established village: a full nuke is roughly 6,000 Axe / 3,000 Light Cavalry / 250-300 Rams. Build that, then start on the next one — more nukes sent more often beats one perfect army.',
-          'Rams: 250-300 in EVERY nuke, no exceptions — the enemy wall multiplies their whole defensive stack, so unbroken walls kill nukes.',
-          'Light Cavalry cuts through Swordsmen better than Axes do, so lean on LC against well-defended targets.'
-        ];
-      }
-      sections.push({h:'How many to build ('+stage+' stage)', items:targetsO});
-
-      // academy / nobles
-      if(b.academy>=1 || (b.headquarters>=20 && b.smithy>=20 && b.market>=10)){
-        sections.push({h:'Academy & Nobles', items:[
-          (b.academy>=1?'Academy is up. ':'You meet the Academy requirements (HQ 20 + Smithy 20 + Market 10) — build it. ')+'Mint coins, then build Noblemen.',
-          'Send 4 Nobles per target, travelling BEHIND a clearing nuke — never send a noble at an uncleared village. A noble on a defended village is 100 population and ~140k resources thrown away.',
-          'Always scout a target before nobling it, so you know it is actually cleared.'
-        ]});
-      }
-      sections.push({h:'Do not', items:[
-        'Do not build Spears or Swords here — defensive units steal the population your nuke needs.',
-        'Do not send a nuke without rams, and do not send half a nuke — a partial army just feeds the enemy. Spend the full nuke or keep farming with it until it is full.',
-        'Do not let the army sit idle. If it is not attacking, it should be farming.'
+      sections.push({h:'What this army actually hits for (real values)', items:[
+        'Total attack power: '+st.attack.toLocaleString()+' points.',
+        'Rams: '+(have.ram||0)+' — these do not kill, they break the wall so the rest land at full strength.',
+        'Catapults: '+(have.catapult||0)+' — building destruction only.',
+        'Attack per population is the number that matters when filling a village: Axe '+(UNITS.axe.attack/UNITS.axe.pop).toFixed(0)+
+          '/pop, Light Cavalry '+(UNITS.light_cavalry.attack/UNITS.light_cavalry.pop).toFixed(1)+
+          '/pop'+(archers?(', Mounted Archer '+(UNITS.mounted_archer.attack/UNITS.mounted_archer.pop).toFixed(0)+'/pop'):'')+
+          ', Heavy Cavalry '+(UNITS.heavy_cavalry.attack/UNITS.heavy_cavalry.pop).toFixed(0)+'/pop. Axes are the most attack per population; cavalry buys you speed and loot capacity.'
       ]});
     }
+
+    /* ---------- 3. THE GAP: exactly what to build ---------- */
+    var gapRows=[], gapUnits={};
+    Object.keys(tgt).forEach(function(u){
+      var n=have[u]||0, want=tgt[u], gap=want-n;
+      if(gap>0){ gapUnits[u]=gap; gapRows.push(UNITS[u].label+': have '+n.toLocaleString()+' → build '+gap.toLocaleString()+' more (target '+want.toLocaleString()+')'); }
+      else gapRows.push(UNITS[u].label+': have '+n.toLocaleString()+' — target '+want.toLocaleString()+' MET \u2713');
+    });
+    var gapStats=troopStats(gapUnits);
+    if(gapStats.count>0){
+      gapRows.push('COST to close this gap: '+gapStats.wood.toLocaleString()+' wood, '+gapStats.clay.toLocaleString()+' clay, '+gapStats.iron.toLocaleString()+' iron — and '+gapStats.pop.toLocaleString()+' more population.');
+    }
+    // flag units that don't belong in this role
+    var wrong=[];
+    UNIT_ORDER.forEach(function(u){
+      var n=have[u]||0; if(!n) return;
+      if(tgt[u]) return;
+      if(role==='defense' && (u==='axe'||u==='light_cavalry'||u==='mounted_archer'||u==='ram'||u==='catapult'))
+        wrong.push(UNITS[u].label+' ×'+n.toLocaleString()+' ('+(n*UNITS[u].pop).toLocaleString()+' pop)');
+      if(role==='offense' && (u==='spear'||u==='sword'||u==='archer'||u==='heavy_cavalry'))
+        wrong.push(UNITS[u].label+' ×'+n.toLocaleString()+' ('+(n*UNITS[u].pop).toLocaleString()+' pop)');
+    });
+    if(wrong.length) gapRows.push('Wrong role for this village: '+wrong.join(', ')+'. They are eating population this village needs. Move them to a village that wants them.');
+    sections.push({h:'Exactly what to build now ('+stage+' stage)', items:gapRows});
+
+    /* ---------- 4. Build order / how to get there ---------- */
+    var order=[];
+    if(role==='defense'){
+      if((b.barracks||0)<1) order.push('Barracks (needs HQ 3) — nothing defensive exists until this is up.');
+      else order.push('Barracks is '+b.barracks+'. Keep the queue full permanently; raise it toward 25 so you can rebuild fast after being hit.');
+      if((b.smithy||0)<1) order.push('Smithy (needs HQ 5 + Barracks 1) — research Spear, then Sword'+(archers?', then Archer':'')+'. Researching a unit strengthens the ones you already own, not just new ones.');
+      else order.push('Smithy is '+b.smithy+'. Research priority: Spear \u2192 Sword'+(archers?' \u2192 Archer':'')+'. Take each as high as the Smithy allows before adding new unit types.');
+      order.push('Wall toward 20 — it multiplies all three defence numbers above. Rebuilding the wall after an attack comes BEFORE recruiting more troops.');
+      order.push('Farm and Warehouse toward 30 — you cannot hold '+ (tgtStats.pop).toLocaleString() +' population of defence without the farm to support it.');
+      if((b.stable||0)>=1) order.push('Stable is '+b.stable+'. A few hundred Scouts for vision, and Heavy Cavalry only as fast reinforcement for allies — HC is '+UNITS.heavy_cavalry.pop+' population each, far less pop-efficient than Spear/Sword at 1 pop.');
+    } else {
+      if((b.barracks||0)<1) order.push('Barracks (needs HQ 3) — Axemen come from here, and early Spears for farming.');
+      else order.push('Barracks is '+b.barracks+'. Axes are your bulk damage and the most attack-per-population in the game.');
+      if((b.stable||0)<1) order.push('Stable (needs HQ 10 + Barracks 5 + Smithy 5) — this is the priority build. Light Cavalry is fast, hits hard, and hauls '+UNITS.light_cavalry.haul+' loot so it pays for itself while farming.');
+      else order.push('Stable is '+b.stable+'. Raise toward 20 for faster Light Cavalry output.');
+      if((b.workshop||0)<1) order.push('Workshop (needs HQ 10 + Smithy 10) — Rams. Without rams your nuke breaks on the enemy wall.');
+      else order.push('Workshop is '+b.workshop+'. Build rams to '+ (tgt.ram||300) +' per nuke; add catapults once rams are covered.');
+      if((b.smithy||0)<10) order.push('Smithy toward 20 — required for the Academy later, and Axe/LC research directly raises your nuke\u2019s hitting power.');
+      else order.push('Smithy is '+b.smithy+'. Research order: Axe \u2192 Light Cavalry \u2192 Ram. An under-researched nuke hits far softer for the same population.');
+      order.push('Farm toward 30 — a full nuke is about '+tgtStats.pop.toLocaleString()+' population. You cannot field one without the farm.');
+    }
+    sections.push({h:'Build order to get there', items:order});
+
+    /* ---------- 5. Do not ---------- */
+    if(role==='defense'){
+      sections.push({h:'Do not', items:[
+        'Do not build Axes, Light Cavalry, Rams or Catapults here — every one of them takes population away from Spear/Sword'+(archers?'/Archer':'')+'.',
+        'Do not stack only one unit type. An all-Spear village folds to an axe nuke; an all-Sword village folds to cavalry'+(archers?'; archers are strong all-round but nearly useless against other archers (only '+UNITS.archer.def_archer+' defence vs archer)':'')+'.',
+        'Do not leave the wall damaged — it multiplies every defender you own.',
+        'Do not let the farm cap. A full farm stops recruitment dead.'
+      ]});
+    } else {
+      sections.push({h:'Do not', items:[
+        'Do not build Spears, Swords'+(archers?', Archers':'')+' or Heavy Cavalry here — defensive units steal the population your nuke needs.',
+        'Do not send a nuke without rams, and do not send half a nuke. A partial army just feeds the defender.',
+        'Do not let the army sit idle. If it is not attacking, it should be farming — Light Cavalry hauls '+UNITS.light_cavalry.haul+' each.',
+        'Do not send nobles at an uncleared village — a Nobleman is '+UNITS.noble.pop+' population and dies to any real defence.'
+      ]});
+    }
+
     return sections;
+  }
+
+  // one-line role note per unit, from its real stats
+  function unitRoleNote(u){
+    var d=UNITS[u];
+    switch(u){
+      case 'spear': return 'anti-cavalry backbone ('+d.def_cavalry+' def vs cavalry, 1 pop — the most pop-efficient defender you have)';
+      case 'sword': return 'anti-infantry backbone ('+d.def_general+' def vs infantry, 1 pop)';
+      case 'axe': return 'offensive bulk damage ('+d.attack+' attack, 1 pop — best attack per population)';
+      case 'archer': return 'all-round defender ('+d.def_general+' vs infantry, '+d.def_cavalry+' vs cavalry) but almost no defence vs other archers ('+d.def_archer+')';
+      case 'scout': return 'vision only ('+d.pop+' pop each). You need some, or you attack and defend blind';
+      case 'light_cavalry': return 'main offensive cavalry ('+d.attack+' attack, '+d.pop+' pop, hauls '+d.haul+' — farms while it fights)';
+      case 'mounted_archer': return 'archer-world cavalry ('+d.attack+' attack at '+d.pop+' pop — less attack per pop than Light Cavalry, better defensively)';
+      case 'heavy_cavalry': return 'elite defender ('+d.def_general+' vs infantry) but '+d.pop+' pop each — use as fast reinforcement, not as your main wall';
+      case 'ram': return 'breaks the enemy wall so your army lands at full strength (does almost no damage itself)';
+      case 'catapult': return 'destroys buildings ('+d.pop+' pop each) — for flattening, not for killing troops';
+      case 'noble': return 'captures villages ('+d.pop+' pop each). Send 4 behind a cleared target';
+      case 'paladin': return 'single hero unit with a weapon bonus';
+      default: return d.attack>d.def_general?'offensive unit':'defensive unit';
+    }
   }
 
   /* -------- growth tracking (per village, saved to disk) -------- */
@@ -2018,7 +2081,7 @@
     html+='<div class="card"><div class="eyebrow">Village health · '+state.points.toLocaleString()+' points</div>';
     health.forEach(function(fl){
       var col = fl.t==='crit' ? 'var(--crit)' : (fl.t==='warn' ? 'var(--wax)' : 'var(--good)');
-      var bg  = fl.t==='crit' ? 'rgba(107,31,31,.08)' : (fl.t==='warn' ? 'rgba(124,31,26,.06)' : 'rgba(63,107,63,.08)');
+      var bg = fl.t==='crit' ? 'rgba(107,31,31,.08)' : (fl.t==='warn' ? 'rgba(124,31,26,.06)' : 'rgba(63,107,63,.08)');
       html+='<div class="note" style="border-color:'+col+';background:'+bg+';margin-top:8px;">'+esc(fl.m)+'</div>';
     });
     html+='</div>';
@@ -2069,9 +2132,22 @@
     }
 
     // troop production
-    var troops=troopAdvice(role, b, state.units, state.unitsAvailable, stage);
+    // Auto-fill the troop boxes from the game if it exposed counts, then ALWAYS read the
+    // boxes — so the guide is exact whether the auto-read worked or you typed them in.
+    var autoFilled=0;
+    if(state.unitsAvailable && state.units) autoFilled=fillBuildTroopsFromGame(state.units);
+    var boxTroops=readBuildTroops();
+    var troops=troopAdvice(role, b, boxTroops, boxTroops._any, stage, b.farm);
     if(troops.length){
       html+='<div class="card"><div class="eyebrow">Troop guide — '+(role==='defense'?'defensive':'offensive')+' village</div>';
+      // be explicit about where the numbers came from
+      if(autoFilled>0){
+        html+='<div class="note" style="border-color:var(--good);background:rgba(63,107,63,.08);margin-top:10px;">Read <strong>'+autoFilled+'</strong> unit type'+(autoFilled===1?'':'s')+' from the game and filled the boxes above. Correct any that look wrong and press Read again — the guide uses whatever is in those boxes.</div>';
+      } else if(boxTroops._any){
+        html+='<div class="note" style="margin-top:10px;">Using the troop counts you typed in the boxes above. (The game didn\'t expose counts on this screen — your typed numbers are what the guide is working from, and they\'re exact.)</div>';
+      } else {
+        html+='<div class="note" style="border-color:var(--wax);background:rgba(124,31,26,.06);margin-top:10px;"><strong>No troop counts yet.</strong> The game didn\'t expose them on this screen, and the boxes above are empty — so the numbers below are targets only, with no gap analysis. Open your rally point, read your unit counts, type them into the boxes above, and press Read again for exact figures.</div>';
+      }
       troops.forEach(function(sec){
         html+='<div style="margin-top:14px;"><div style="font-family:\'Cinzel\',serif;font-weight:700;font-size:14.5px;color:var(--ink);letter-spacing:.02em;margin-bottom:6px;">'+esc(sec.h)+'</div>'+
               '<ul style="margin:0;padding-left:18px;">'+
@@ -2282,6 +2358,30 @@
     });
   })();
 
+  // build BUILD-GUIDE per-unit input boxes (your troops in this village).
+  // These auto-fill from the game when readable, but are always editable — the guide's
+  // numbers come from these boxes, so it's exact whether or not auto-read works.
+  (function(){
+    var grid=getById('bUnitGrid'); if(!grid) return;
+    UNIT_ORDER.forEach(function(u){
+      var wrap=document.createElement('label'); wrap.className='fld';
+      var span=document.createElement('span');
+      span.textContent=UNITS[u].label;
+      var inp=document.createElement('input');
+      inp.id='bUnit_'+u; inp.className='mono'; inp.type='number'; inp.min='0'; inp.step='1';
+      inp.placeholder='0';
+      inp.addEventListener('input', updateBuildPopLine);
+      wrap.appendChild(span); wrap.appendChild(inp);
+      grid.appendChild(wrap);
+    });
+    var clr=root.querySelector('[data-act="btroops-clear"]');
+    if(clr) clr.addEventListener('click', function(){
+      UNIT_ORDER.forEach(function(u){ var el=getById('bUnit_'+u); if(el) el.value=''; });
+      updateBuildPopLine();
+    });
+    updateBuildPopLine();
+  })();
+
   // wire the Farm target queue + Save button, then restore any saved farm run
   (function(){
     var farmPanel=root.querySelector('#panel-farm'); if(!farmPanel) return;
@@ -2461,7 +2561,7 @@
       if(hk) WR_SETTINGS.hotkey=hk;
       var wv=val('setWorld').trim(), uv=val('setUnitSpd').trim();
       WR_SETTINGS.worldSpeed = wv==='' ? null : (parseFloat(wv)||null);
-      WR_SETTINGS.unitSpeed  = uv==='' ? null : (parseFloat(uv)||null);
+      WR_SETTINGS.unitSpeed = uv==='' ? null : (parseFloat(uv)||null);
       var ar=getById('setAutoRaid'); WR_SETTINGS.autoRaid = ar?ar.checked:true;
       var ol=getById('setOpenLast'); WR_SETTINGS.openLast = ol?ol.checked:false;
       var wr=getById('setWrap'); WR_SETTINGS.wrap = wr?wr.checked:false;
