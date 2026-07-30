@@ -1,6 +1,6 @@
 # ⚔ War Room — Tribal Wars Command
 
-Unofficial Tribal Wars planning panel userscript for [Tribal Wars](https://www.tribalwars.net/) — farm queue, attack timing, attacker intel, build guide. Fills the rally point but never sends.
+Tribal Wars planning panel userscript for [Tribal Wars](https://www.tribalwars.net/) — farm queue, attack timing, attacker intel, build guide. Fills the rally point but never sends.
 
 > **The tool fills and aims · You press Enter, you command.**
 
